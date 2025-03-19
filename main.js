@@ -7,7 +7,7 @@ dotenv.config();
 const BROWSER_COUNT = 10;
 const BROWSER_WIDTH = 480; // Each browser window will be 480x360
 const BROWSER_HEIGHT = 360;
-const COLUMNS = 7;
+const COLUMNS = 4;
 
 export const STEPS = {
   INITIALIZED: "Initialized",
@@ -137,34 +137,40 @@ const launchBrowsers = async () => {
               state: "visible",
             });
 
-            // Get the Chrome DevTools Protocol session
-            const cdpSession = await context.newCDPSession(buyPage);
-
-            // Get the target info first
-            const targetInfo = await cdpSession.send(
-              "Browser.getWindowForTarget"
-            );
-
-            // Use the Browser.setWindowBounds method to resize the window
-            await cdpSession.send("Browser.setWindowBounds", {
-              windowId: targetInfo.windowId,
-              bounds: {
-                width: 1440,
-                height: 1200,
-                left: 0,
-                top: 0,
-              },
-            });
-
-            purchaseBrowser = browser;
+            // Store both browser and context
+            purchaseBrowser = { browser, context, page: buyPage };
           },
           {
             actionName: STEPS.WAITED_TO_BUY_PAGE,
-            timeout: 3000,
+            timeout: 800,
             page: (await context.pages())[context.pages().length - 1],
             reload: false,
           }
         );
+
+        // STEP 4: resize the window
+        if (purchaseBrowser) {
+          // Use the stored context and page
+          const cdpSession = await purchaseBrowser.context.newCDPSession(
+            purchaseBrowser.page
+          );
+
+          // Get the target info first
+          const targetInfo = await cdpSession.send(
+            "Browser.getWindowForTarget"
+          );
+
+          // Use the Browser.setWindowBounds method to resize the window
+          await cdpSession.send("Browser.setWindowBounds", {
+            windowId: targetInfo.windowId,
+            bounds: {
+              width: 1440,
+              height: 1200,
+              left: 0,
+              top: 0,
+            },
+          });
+        }
       })
     );
 
