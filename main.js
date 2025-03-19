@@ -4,7 +4,7 @@ import { withTimeoutAndInfiniteRetry } from "./utils.js";
 
 dotenv.config();
 
-const BROWSER_COUNT = 1;
+const BROWSER_COUNT = 15;
 const BROWSER_WIDTH = 480; // Each browser window will be 480x360
 const BROWSER_HEIGHT = 360;
 const COLUMNS = 7;
@@ -40,6 +40,11 @@ const launchBrowsers = async () => {
         console.log(`Launching browser ${i + 1}...`);
         const browser = await chromium.launch({
           headless: false,
+          //   proxy: {
+          //     server: process.env.PROXY_SERVER_URL,
+          //     username: process.env.PROXY_USERNAME,
+          //     password: process.env.PROXY_PASSWORD,
+          //   },
           args: [
             `--window-position=${positions[i].x},${positions[i].y}`,
             `--window-size=${BROWSER_WIDTH + 16},${BROWSER_HEIGHT + 88}`, // Add padding for browser chrome
