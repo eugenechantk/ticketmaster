@@ -4,7 +4,7 @@ import { withTimeoutAndInfiniteRetry } from "./utils.js";
 
 dotenv.config();
 
-const BROWSER_COUNT = 15;
+const BROWSER_COUNT = 10;
 const BROWSER_WIDTH = 480; // Each browser window will be 480x360
 const BROWSER_HEIGHT = 360;
 const COLUMNS = 7;
