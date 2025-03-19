@@ -9,13 +9,15 @@ const STEPS = {
   INITIALIZED: "Initialized",
   NAVIGATED_TO_EVENT_PAGE: "Navigated to JJ concert page",
   NAVIGATED_TO_QUEUE: "Navigatd to the queue",
+  WAITED_TO_BUY_PAGE: "Waited to the buy page",
 };
 
 const browsers = new Map();
+let purchaseBrowser = null;
 
 const withTimeoutAndInfiniteRetry = async (
   action,
-  { actionName, timeout = 3000, page }
+  { actionName, timeout = 3000, page, reload = true }
 ) => {
   const tryAction = async () => {
     const timeoutPromise = new Promise((_, reject) => {
@@ -37,10 +39,12 @@ const withTimeoutAndInfiniteRetry = async (
     } catch (error) {
       console.log(`${actionName}: ${error.message}`);
       if (page) {
-        console.log(`${actionName}: Refreshing page and retrying...`);
-        await page.reload();
-        // Wait a bit before retrying to avoid hammering the server
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (reload) {
+          console.log(`${actionName}: Refreshing page and retrying...`);
+          await page.reload();
+        } else {
+          console.log(`${actionName}: Retrying...`);
+        }
       } else {
         throw error; // If no page object, can't retry
       }
@@ -77,7 +81,7 @@ const launchBrowsers = async () => {
 
         // Create context with specific viewport size
         const context = await browser.newContext({
-          viewport: { width: BROWSER_WIDTH, height: BROWSER_HEIGHT },
+          viewport: null,
           screen: { width: BROWSER_WIDTH, height: BROWSER_HEIGHT },
         });
 
@@ -117,6 +121,8 @@ const launchBrowsers = async () => {
           }
         );
 
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
         // Step 2: click the button and join the queue
         await withTimeoutAndInfiniteRetry(
           async () => {
@@ -129,8 +135,11 @@ const launchBrowsers = async () => {
             const eventPage = pages[pages.length - 1];
             console.log("Event page:", await eventPage.url());
 
-            // Wait for and click the buy ticket button inside buyTicketBox
-            await eventPage.click("div.buyTicketBox button");
+            // Wait for and click the buy ticket button inside buyTicketBox when it's enabled
+            await eventPage.waitForSelector(
+              "div.buyTicketBox button:not([disabled])"
+            );
+            await eventPage.click("div.buyTicketBox button:not([disabled])");
 
             browsers.get(i).step = STEPS.NAVIGATED_TO_QUEUE;
           },
@@ -142,6 +151,48 @@ const launchBrowsers = async () => {
         );
 
         // Step 3: wait for the buy page to be available, and then make the page bigger
+        await withTimeoutAndInfiniteRetry(
+          async () => {
+            // early return if there is a browser that exits the queue
+            if (purchaseBrowser) {
+              return;
+            }
+
+            const pages = await context.pages();
+            const buyPage = pages[pages.length - 1];
+
+            await buyPage.waitForSelector("button.purchase-btn", {
+              state: "visible",
+            });
+
+            // Get the Chrome DevTools Protocol session
+            const cdpSession = await context.newCDPSession(buyPage);
+
+            // Get the target info first
+            const targetInfo = await cdpSession.send(
+              "Browser.getWindowForTarget"
+            );
+
+            // Use the Browser.setWindowBounds method to resize the window
+            await cdpSession.send("Browser.setWindowBounds", {
+              windowId: targetInfo.windowId,
+              bounds: {
+                width: 1440,
+                height: 1200,
+                left: 0,
+                top: 0,
+              },
+            });
+
+            purchaseBrowser = browser;
+          },
+          {
+            actionName: STEPS.WAITED_TO_BUY_PAGE,
+            timeout: 3000,
+            page: (await context.pages())[context.pages().length - 1],
+            reload: false,
+          }
+        );
       })
     );
 
