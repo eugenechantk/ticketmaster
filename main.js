@@ -1,11 +1,15 @@
+import dotenv from "dotenv";
 import { chromium } from "playwright";
+import { withTimeoutAndInfiniteRetry } from "./utils.js";
+
+dotenv.config();
 
 const BROWSER_COUNT = 1;
 const BROWSER_WIDTH = 480; // Each browser window will be 480x360
 const BROWSER_HEIGHT = 360;
 const COLUMNS = 7;
 
-const STEPS = {
+export const STEPS = {
   INITIALIZED: "Initialized",
   NAVIGATED_TO_EVENT_PAGE: "Navigated to JJ concert page",
   NAVIGATED_TO_QUEUE: "Navigatd to the queue",
@@ -14,43 +18,6 @@ const STEPS = {
 
 const browsers = new Map();
 let purchaseBrowser = null;
-
-const withTimeoutAndInfiniteRetry = async (
-  action,
-  { actionName, timeout = 3000, page, reload = true }
-) => {
-  const tryAction = async () => {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(
-          new Error(`${actionName}: Operation timed out after ${timeout}ms`)
-        );
-      }, timeout);
-    });
-
-    return Promise.race([action(), timeoutPromise]);
-  };
-
-  while (true) {
-    try {
-      await tryAction();
-      console.log(`${actionName}: Success!`);
-      return; // Exit the loop and function on success
-    } catch (error) {
-      console.log(`${actionName}: ${error.message}`);
-      if (page) {
-        if (reload) {
-          console.log(`${actionName}: Refreshing page and retrying...`);
-          await page.reload();
-        } else {
-          console.log(`${actionName}: Retrying...`);
-        }
-      } else {
-        throw error; // If no page object, can't retry
-      }
-    }
-  }
-};
 
 const launchBrowsers = async () => {
   try {
