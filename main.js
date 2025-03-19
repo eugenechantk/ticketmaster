@@ -117,7 +117,7 @@ const launchBrowsers = async () => {
           },
           {
             actionName: STEPS.NAVIGATED_TO_QUEUE,
-            timeout: 5000,
+            timeout: 3000,
             page: (await context.pages())[context.pages().length - 1],
           }
         );
