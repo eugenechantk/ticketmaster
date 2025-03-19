@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 
-const BROWSER_COUNT = 10;
+const BROWSER_COUNT = 1;
 const BROWSER_WIDTH = 480; // Each browser window will be 480x360
 const BROWSER_HEIGHT = 360;
 const COLUMNS = 7;
@@ -15,7 +15,7 @@ const browsers = new Map();
 
 const withTimeoutAndInfiniteRetry = async (
   action,
-  { actionName, timeout = 10000, page }
+  { actionName, timeout = 3000, page }
 ) => {
   const tryAction = async () => {
     const timeoutPromise = new Promise((_, reject) => {
@@ -101,11 +101,11 @@ const launchBrowsers = async () => {
             await page.goto("https://www.cityline.com/zh_HK/Events.html");
             await page.waitForSelector("span.event-tag");
 
-            const jjEventLink = await page
-              .locator('a:has(span.event-tag:text("JJ"))')
-              .first();
-
-            await jjEventLink.click();
+            // Click and wait for new page
+            await page
+              .locator('a:has(span.event-tag:text("伯大尼"))')
+              .first()
+              .click();
 
             // Update step after successful navigation
             browsers.get(i).step = STEPS.NAVIGATED_TO_EVENT_PAGE;
@@ -116,6 +116,32 @@ const launchBrowsers = async () => {
             page,
           }
         );
+
+        // Step 2: click the button and join the queue
+        await withTimeoutAndInfiniteRetry(
+          async () => {
+            if (browsers.get(i).step === STEPS.NAVIGATED_TO_QUEUE) {
+              return;
+            }
+
+            // Get the event page (last opened page)
+            const pages = await context.pages();
+            const eventPage = pages[pages.length - 1];
+            console.log("Event page:", await eventPage.url());
+
+            // Wait for and click the buy ticket button inside buyTicketBox
+            await eventPage.click("div.buyTicketBox button");
+
+            browsers.get(i).step = STEPS.NAVIGATED_TO_QUEUE;
+          },
+          {
+            actionName: STEPS.NAVIGATED_TO_QUEUE,
+            timeout: 5000,
+            page: (await context.pages())[context.pages().length - 1],
+          }
+        );
+
+        // Step 3: wait for the buy page to be available, and then make the page bigger
       })
     );
 
